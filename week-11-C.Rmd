@@ -29,9 +29,22 @@ primary_06 ~ solo + primary_04 + treatment + solo:treatment
 (Assume that you have already completed a cross-validation analysis and chosen this one model to use going forward.)
 
 * Which data set should you use to fit the model? Explain why.
+```{r sc1, cache = TRUE}
+model_1 <- stan_glm(primary_06 ~ solo + primary_04 + treatment + solo*treatment,
+                    data = week_11,
+                    refresh = 0)
+
+print(model_1, digits = 4)
+
+# Now that we've found the best model, don't want to leave any observations out
+```
+
 
 * Interpret the fitted model. Should we keep all these variables? And the interaction term?
 
+It's nice to keep everything to see how all the factors influence primary turnout.
+There are multiple interaction terms, and it's nice to keep all of them to 
+look at later.
 
 
 ## Scene 2
@@ -40,7 +53,59 @@ primary_06 ~ solo + primary_04 + treatment + solo:treatment
 
 * One way to answer this question is to use `posterior_predict()`. Do that. Make it look nice! Write a sentence or two interpreting the answer.
 
+```{r sc2-a}
+neighbors <- tibble(solo = TRUE, 
+                    primary_04 = "Yes", 
+                    treatment = c('Neighbors', 'Control'))
+
+pp <- model_1 %>%
+  posterior_predict(newdata = neighbors) %>%
+  as_tibble() %>%
+  rename('neighbors' = `1`, 'control' = `2`) %>%
+  mutate(causal = neighbors - control) %>%
+  select(causal)
+
+ggplot(pp, aes(x = causal)) +
+  geom_histogram(aes(y = after_stat(count/sum(count))),
+                 alpha = 0.7, 
+                 bins = 100,
+                 color = "white",
+                 position = "identity",
+                 fill = 'skyblue') + 
+  labs(title = "Posterior Predictive Distribution for Causal Effect of Neighbors",
+       subtitle = "For a single individual, there is a lot of uncertainty",
+       x = "Change in Voting Likelihood",
+       y = "Probability") +
+  theme_classic()
+
+```
+
+
 * A second approach uses `posterior_epred()`. Do that. Make it look nice! Write a sentence or two interpreting the answer.
+
+```{r sc2-b}
+pp_epred <- model_1 %>%
+  posterior_epred(newdata = neighbors) %>%
+  as_tibble() %>%
+  rename('neighbors' = `1`, 'control' = `2`) %>%
+  mutate(causal = neighbors - control) %>%
+  select(causal)
+
+ggplot(pp_epred, aes(x = causal)) +
+  geom_histogram(aes(y = after_stat(count/sum(count))),
+                 alpha = 0.7, 
+                 bins = 100,
+                 color = "white",
+                 position = "identity",
+                 fill = 'skyblue') + 
+  labs(title = "Posterior Predictive Distribution for Causal Effect of Neighbors",
+       subtitle = "For a single individual, there is a lot of uncertainty",
+       x = "Change in Voting Likelihood",
+       y = "Probability") +
+  theme_classic()
+
+```
+
 
 
 ## Scene 3
