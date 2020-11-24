@@ -107,10 +107,73 @@ ggplot(pp_epred, aes(x = causal)) +
 ```
 
 
-
 ## Scene 3
 
 **Prompt:** There are four primary causal effects of interest: each of the four treatments compared, individually, to Control.  Build a big graphic which shows the four posterior probability distributions of the expected values at once. See #preceptors-notes for my version. You do not need to copy my work! Make something better!
+
+```{r sc3}
+all <- tibble(solo = TRUE, 
+                    primary_04 = "Yes", 
+                    treatment = c('Neighbors', 'Control', 'Self', 'Hawthorne', 'Civic Duty'))
+
+pp_epred_2 <- model_1 %>%
+  posterior_epred(newdata = all) %>%
+  as_tibble() %>%
+  rename('neighbors' = `1`, 'control' = `2`, 'self' = 3, 'hawthorne' = 4, 'civic' = 5) %>%
+  mutate(causal_n = neighbors - control,
+         causal_s = self - control,
+         causal_h = hawthorne - control,
+         causal_c = civic - control) %>%
+  select(causal_n, causal_s, causal_h, causal_c) %>%
+  pivot_longer(cols = causal_n:causal_c, names_to = 'treatment', values_to = 'effect')
+
+ggplot(pp_epred_2, aes(x = effect, fill = treatment)) +
+  geom_histogram(aes(y = after_stat(count/sum(count))),
+                 alpha = 0.7, 
+                 bins = 100,
+                 color = "white",
+                 position = "identity") + 
+  labs(title = "Posterior Predictive Distribution for Causal Effect of Neighbors",
+       subtitle = "For a single individual, there is a lot of uncertainty",
+       x = "Change in Voting Likelihood",
+       y = "Probability") +
+  theme_classic()
+
+
+```
+
+```{r sc3-alt}
+new_obs <- expand_grid(treatment = levels(week_11$treatment),
+                       solo = c(TRUE), # challenge questino wuld be (TRUE, FALSE)
+                       primary_04 = "Yes")
+
+x <- posterior_epred(model_1, newdata = new_obs) %>%
+  as_tibble() %>%
+  mutate_all(as.numeric) %>%
+  set_names(new_obs$treatment) %>%
+  pivot_longer(cols = `Civic Duty`:Neighbors,
+               names_to = "treatment",
+               values_to = "post")
+
+ggplot(x, aes(x = post, fill = treatment)) +
+  geom_histogram(aes(y = after_stat(count/sum(count))),
+                 alpha = 0.7, 
+                 bins = 100,
+                 color = "white",
+                 position = "identity") + 
+  labs(title = "Posterior Predictive Distribution for Expected Causal Effects",
+       subtitle = "Postcards which show neighborhood voting have the biggest effect",
+       x = "Change in Voting Likelihood",
+       y = "Probability",
+       fill = "Treatment") +
+  theme_classic() +
+  scale_x_continuous(labels = scales::percent_format()) + 
+  scale_y_continuous(labels = scales::percent_format()) 
+  
+
+```
+
+
 
 * Challenge question: Do the same but for both `solo = TRUE` and `solo = FALSE`. This means that there are 8 posterior probability distributions to show. Think hard about the best way to display them. What point are you trying to get across to your readers?
 
